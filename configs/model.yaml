@@ -1,0 +1,8 @@
+models:
+  qwen:
+    model_name: "Qwen/Qwen2.5-Math-7B-Instruct"
+    type: "specialist"
+
+  llama:
+    model_name: "meta-llama/Llama-3.1-8B-Instruct"
+    type: "generalist"
