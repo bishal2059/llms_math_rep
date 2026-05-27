@@ -1,0 +1,6 @@
+probing:
+  classifier: "logistic_regression"
+  max_iter: 2000
+  seed: 42
+  standardize: true
+  include_embedding_layer: true

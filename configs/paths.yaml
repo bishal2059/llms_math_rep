@@ -1,0 +1,9 @@
+paths:
+  raw_data: "data/raw/math_dataset.json"
+  processed_data: "data/processed/dataset.parquet"
+  split_dir: "data/splits"
+  embeddings_dir: "results/embeddings"
+  clustering_dir: "results/clustering"
+  probing_dir: "results/probing"
+  figures_dir: "results/figures"
+  tables_dir: "results/tables"

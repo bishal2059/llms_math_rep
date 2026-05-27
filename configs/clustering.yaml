@@ -1,4 +1,5 @@
 clustering:
   algorithm: "kmeans"
   n_clusters: 4
-  random_seed: 42
+  seed: 42
+  use_labels_for_evaluation_only: true

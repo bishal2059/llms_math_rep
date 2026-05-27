@@ -1,15 +1,28 @@
 dataset:
-  raw_path: "data/raw/math_dataset.csv"
-  processed_path: "data/processed/processed_dataset.csv"
+  raw_json: "data/raw/math_dataset.json"
 
-classes:
-  - algebra
-  - arithmetic
-  - calculus
-  - probability
+processed:
+  parquet_path: "data/processed/dataset.parquet"
+
+labels:
+  Algebra: "algebra"
+  Arithmetic: "arithmetic"
+  Calculus: "calculus"
+  Probability: "probability"
 
 split:
   train_per_class: 400
   test_per_class: 100
+  random_seed: 42
 
-random_seed: 42
+columns:
+  text_column: "question"
+  label_column: "answer_domain"
+
+embedding_settings:
+  max_length: 256
+  pooling: "mean"
+
+dataset_statistics:
+  total_samples: 2000
+  total_classes: 4
