@@ -1,0 +1,4 @@
+clustering:
+  algorithm: "kmeans"
+  n_clusters: 4
+  random_seed: 42

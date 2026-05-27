@@ -1,0 +1,15 @@
+dataset:
+  raw_path: "data/raw/math_dataset.csv"
+  processed_path: "data/processed/processed_dataset.csv"
+
+classes:
+  - algebra
+  - arithmetic
+  - calculus
+  - probability
+
+split:
+  train_per_class: 400
+  test_per_class: 100
+
+random_seed: 42
