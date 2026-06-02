@@ -15,7 +15,7 @@ This work studies how mathematical knowledge is represented internally across la
 
 We compare:
 
-- Qwen2.5-7B
+- Qwen2.5-Math-7B-Instruct
 - Llama-3.1-8B-Instruct
 
 using a balanced mathematical dataset consisting of four domains:
@@ -134,7 +134,7 @@ Metrics include:
 
 | Model | Type |
 |---|---|
-| Qwen2.5-7B | Specialist |
+| Qwen2.5-Math-7B-Instruct | Specialist |
 | Llama-3.1-8B-Instruct | Generalist |
 
 ---
