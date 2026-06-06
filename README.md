@@ -1,437 +1,274 @@
-# Layer-wise Evolution of Mathematical Concept Representations:
-## Comparing Specialist and Generalist Language Models
+# Layer-wise Evolution of Mathematical Concept Representations
 
-This repository contains the official implementation for the research project:
+Official code for studying how mathematical concepts are encoded across transformer layers in specialist and generalist language models.
 
-> **Layer-wise Evolution of Mathematical Concept Representations: Comparing Specialist and Generalist Language Models**
-
-The project investigates how mathematical concepts evolve across transformer layers in large language models using embedding-space analysis, clustering, and linear probing.
+**Paper:** *Layer-wise Evolution of Mathematical Concept Representations: Comparing Specialist and Generalist Language Models*
 
 ---
 
-# Research Objective
+## Abstract
 
-This work studies how mathematical knowledge is represented internally across layers of transformer-based language models.
+We analyze internal representations of mathematical reasoning in large language models by extracting layer-wise hidden states, measuring geometric cluster separability, and training linear probes to classify problem domains. Two models are compared under identical conditions:
 
-We compare:
+| Model | Hugging Face ID | Role |
+|-------|-----------------|------|
+| Qwen2.5-Math-7B-Instruct | `Qwen/Qwen2.5-Math-7B-Instruct` | Math specialist |
+| Llama-3.1-8B-Instruct | `meta-llama/Llama-3.1-8B-Instruct` | Generalist |
 
-- Qwen2.5-Math-7B-Instruct
-- Llama-3.1-8B-Instruct
-
-using a balanced mathematical dataset consisting of four domains:
-
-- Algebra
-- Arithmetic
-- Calculus
-- Probability
-
-The project analyzes:
-
-1. Layer-wise embedding evolution
-2. Cluster separability of mathematical concepts
-3. Linear probing performance across layers
-4. Representation geometry differences between models
+Experiments use a balanced corpus of **2,000** math questions across four domains (Algebra, Arithmetic, Calculus, Probability). The pipeline reports layer-wise silhouette scores, probing accuracy, and low-dimensional embedding projections, with paired statistical tests between models.
 
 ---
 
-# Dataset
+## Table of Contents
 
-The dataset contains:
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Reproducing Experiments](#reproducing-experiments)
+- [Project Structure](#project-structure)
+- [Configuration](#configuration)
+- [Outputs](#outputs)
+- [Google Colab](#google-colab)
+- [Reproducibility](#reproducibility)
+- [Citation](#citation)
+- [License](#license)
 
-- 2000 mathematical questions
-- 4 balanced classes
-- 500 samples per class
+---
 
-## Dataset Format
+## Requirements
+
+| Component | Version |
+|-----------|---------|
+| Python | ≥ 3.10 |
+| PyTorch | ≥ 2.1 |
+| CUDA GPU (recommended) | ≥ 16 GB VRAM |
+| Hugging Face account | Required for Llama 3.1 access |
+
+**Hardware notes.** Embedding extraction loads 7B–8B models with `device_map="auto"`. A GPU with at least **16 GB VRAM** (e.g. T4, RTX 4090, A10) is recommended. CPU execution is supported but impractically slow at this scale.
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/bishal2059/llms_math_rep.git
+cd llms_math_rep
+
+python -m venv venv
+source venv/bin/activate          # Linux / macOS
+# venv\Scripts\activate           # Windows
+
+pip install -r requirements.txt
+pip install -e .
+```
+
+The editable install (`pip install -e .`) registers the `src` package so pipeline scripts can be run from the repository root.
+
+**Llama access.** Accept the model license at [meta-llama/Llama-3.1-8B-Instruct](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct), then authenticate:
+
+```bash
+huggingface-cli login
+```
+
+---
+
+## Quick Start
+
+Run the full experiment end-to-end:
+
+```bash
+python scripts/07_run_full_pipeline.py
+```
+
+This executes all stages below in order and writes results to `results/`.
+
+---
+
+## Reproducing Experiments
+
+### Dataset
+
+The raw dataset is provided at `data/raw/math_dataset.json`:
+
+- **2,000** questions, **500** per domain
+- Fields: `question`, `answer_domain`
 
 ```json
 [
   {
     "question": "Solve -5*l + 8*l - 3 = 0 for l.",
     "answer_domain": "Algebra"
-  },
-  {
-    "question": "Find the derivative of x^2 + 3x.",
-    "answer_domain": "Calculus"
   }
 ]
 ```
 
----
+### Pipeline
 
-# Repository Structure
+| Step | Script | Description |
+|------|--------|-------------|
+| 0 | `scripts/00_validate_dataset.py` | Validate JSON schema and non-empty fields |
+| 1 | `scripts/01_preprocess_dataset.py` | Normalize labels → `data/processed/dataset.parquet` |
+| 2 | `scripts/02_split_dataset.py` | Fixed split → `data/splits/train_ids.csv`, `test_ids.csv` |
+| 3 | `scripts/03_extract_embeddings.py` | Extract mean-pooled hidden states per layer (GPU) |
+| 4 | `scripts/04_run_clustering.py` | K-Means (k=4) + silhouette score per layer |
+| 5 | `scripts/05_run_probing.py` | Logistic regression probe per layer |
+| 6 | `scripts/06_generate_analysis.py` | Summary tables and layer-wise metric plots |
+| 7 | `scripts/07_run_full_pipeline.py` | Run steps 0–6, 8–10 sequentially |
+| 8 | `scripts/08_run_significance_tests.py` | Paired Wilcoxon / t-tests (Qwen vs Llama) |
+| 9 | `scripts/09_plot_umap_layers.py` | UMAP projections per layer |
+| 10 | `scripts/10_plot_pca_layers.py` | PCA projections per layer |
 
-```text
-math-concept-representations/
-├── configs/
-├── data/
-├── results/
-├── scripts/
-├── src/
-├── notebooks/
-├── README.md
-├── requirements.txt
-└── pyproject.toml
-```
+### Methodology
 
----
+**Phase 1 — Embedding extraction**
 
-# Methodology
+- Models loaded via Hugging Face `AutoModel` with `output_hidden_states=True`
+- Each question tokenized (max length 256), passed through the model
+- **Mean pooling** over non-padding tokens at every layer (including the embedding layer)
+- One `.npz` file saved per layer per model
 
-The research pipeline consists of three phases.
+**Phase 2 — Clustering**
 
----
+- K-Means with `k = 4` on full-dataset embeddings
+- Silhouette score measures unsupervised domain separability per layer
 
-## Phase 1 — Layer-wise Embedding Extraction
+**Phase 3 — Linear probing**
 
-For each model:
+- `StandardScaler` + multinomial logistic regression
+- Trained on **1,600** samples (400 per class), evaluated on **400** held-out samples (100 per class)
+- Fixed split defined in step 2; same split used for all layers and models
 
-- Load transformer hidden states
-- Extract representations from every layer
-- Apply mean pooling
-- Save embeddings as `.npz`
+**Phase 4 — Statistical comparison**
 
-Each `.npz` file contains:
+- Layer-aligned paired tests between Qwen and Llama on accuracy, macro F1, and silhouette
+- Reports Wilcoxon statistic, paired t-test, Cohen's d, and bootstrap confidence intervals
 
-- embeddings
-- labels
-- sample IDs
-- questions
-- model name
-- layer index
-
----
-
-## Phase 2 — Clustering Analysis
-
-For every layer:
-
-- K-Means clustering is performed
-- Silhouette score is computed
-- Representation separability is analyzed
-
-This phase measures how well mathematical domains separate geometrically inside the embedding space.
-
----
-
-## Phase 3 — Linear Probing
-
-For every layer:
-
-- Logistic regression is trained
-- Layer embeddings are used as features
-- Classification performance is measured
-
-Metrics include:
-
-- Accuracy
-- Macro F1
-- Weighted F1
-
----
-
-# Models
-
-| Model | Type |
-|---|---|
-| Qwen2.5-Math-7B-Instruct | Specialist |
-| Llama-3.1-8B-Instruct | Generalist |
-
----
-
-# Installation
-
-## 1. Clone Repository
-
-```bash
-git clone https://github.com/yourusername/math-concept-representations.git
-
-cd math-concept-representations
-```
-
----
-
-## 2. Create Environment
-
-### Using venv
-
-```bash
-python -m venv venv
-```
-
-### Activate Environment
-
-#### Linux / macOS
-
-```bash
-source venv/bin/activate
-```
-
-#### Windows
-
-```bash
-venv\\Scripts\\activate
-```
-
----
-
-## 3. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-pip install -e .
-```
-
-The editable install registers the `src` package so scripts can be run from the repository root.
-
----
-
-# Running the Project
-
----
-
-## Step 1 — Validate Dataset
-
-```bash
-python scripts/00_validate_dataset.py
-```
-
-Checks:
-
-- valid JSON
-- required keys
-- empty values
-- label consistency
-
----
-
-## Step 2 — Preprocess Dataset
-
-```bash
-python scripts/01_preprocess_dataset.py
-```
-
-Creates:
-
-```text
-data/processed/dataset.parquet
-```
-
----
-
-## Step 3 — Create Train/Test Split
-
-```bash
-python scripts/02_split_dataset.py
-```
-
-Creates:
-
-```text
-data/splits/train_ids.csv
-data/splits/test_ids.csv
-```
-
-Split strategy:
-
-- 400 train samples per class
-- 100 test samples per class
-
----
-
-## Step 4 — Extract Layer Embeddings
-
-```bash
-python scripts/03_extract_embeddings.py
-```
-
-Creates:
-
-```text
-results/embeddings/
-```
-
-Each layer is saved separately.
-
-Example:
-
-```text
-results/embeddings/qwen/layer_00.npz
-results/embeddings/qwen/layer_01.npz
-```
-
----
-
-## Step 5 — Run Clustering
-
-```bash
-python scripts/04_run_clustering.py
-```
-
-Creates:
-
-```text
-results/clustering/silhouette_results.csv
-```
-
----
-
-## Step 6 — Run Linear Probing
-
-```bash
-python scripts/05_run_probing.py
-```
-
-Creates:
-
-```text
-results/probing/layerwise_results.csv
-```
-
----
-
-## Step 7 — Generate Final Analysis
-
-```bash
-python scripts/06_generate_analysis.py
-```
-
-Creates:
-
-```text
-results/tables/
-results/figures/
-```
-
----
-
-## Run Complete Pipeline
-
-```bash
-python scripts/07_run_full_pipeline.py
-```
-
----
-
-## Run on Google Colab
-
-1. Push this repo to GitHub.
-2. Open [Google Colab](https://colab.research.google.com/).
-3. **File → Upload notebook** and choose `notebooks/colab_run.ipynb`,  
-   or upload the notebook from your clone.
-4. **Runtime → Change runtime type → T4 GPU**.
-5. Run the cells top to bottom (Hugging Face token required for Llama).
-6. Download `results.zip` when finished, or copy `results/` to Google Drive.
-
-Colab free tier may disconnect after ~12 hours; save embeddings to Drive after step 3 if the session is long.
-
----
-
-# Output Files
-
----
-
-## Embeddings
-
-```text
-results/embeddings/
-```
-
-Contains layer-wise `.npz` files.
-
----
-
-## Clustering Results
-
-```text
-results/clustering/silhouette_results.csv
-```
-
-Columns:
-
-- model_name
-- layer_idx
-- silhouette_score
-
----
-
-## Probing Results
-
-```text
-results/probing/layerwise_results.csv
-```
-
-Columns:
-
-- accuracy
-- macro_f1
-- weighted_f1
-
----
-
-## Figures
-
-```text
-results/figures/
-```
-
-Includes:
-
-- accuracy vs layer
-- silhouette vs layer
-
----
-
-# Experimental Details
+### Experimental Settings
 
 | Setting | Value |
-|---|---|
-| Dataset Size | 2000 |
-| Classes | 4 |
-| Train/Test Split | 400/100 per class |
-| Pooling Strategy | Mean Pooling |
-| Clustering Algorithm | K-Means |
-| Probe Model | Logistic Regression |
-| Random Seed | 42 |
+|---------|-------|
+| Dataset size | 2,000 |
+| Classes | 4 (Algebra, Arithmetic, Calculus, Probability) |
+| Train / test per class | 400 / 100 |
+| Pooling | Mean over tokens |
+| Max sequence length | 256 |
+| Batch size (extraction) | 8 |
+| Clustering | K-Means, k = 4 |
+| Probe | Logistic regression |
+| Random seed | 42 |
 
 ---
 
-# Reproducibility
+## Project Structure
 
-To ensure reproducibility:
-
-- fixed random seed
-- same split across all experiments
-- same preprocessing
-- same pooling strategy
-- same evaluation protocol
+```text
+llms_math_rep/
+├── configs/
+│   ├── models.yaml          # Model IDs and device preference
+│   ├── data.yaml            # Dataset paths, labels, split settings
+│   ├── paths.yaml           # Output directory paths
+│   ├── clustering.yaml
+│   └── probing.yaml
+├── data/
+│   └── raw/
+│       └── math_dataset.json
+├── notebooks/
+│   └── colab_run.ipynb      # Google Colab reproduction notebook
+├── scripts/                 # Pipeline entry points (00–10)
+├── src/
+│   ├── data/                # Validation, preprocessing, splitting
+│   ├── embeddings/          # Model loading, extraction, pooling
+│   ├── clustering/          # K-Means and silhouette
+│   ├── probing/             # Layer-wise logistic regression
+│   └── analysis/            # Figures, tables, significance tests
+├── requirements.txt
+├── pyproject.toml
+└── README.md
+```
 
 ---
 
-# Research Contributions
+## Configuration
 
-This work contributes:
+Key settings in `configs/models.yaml`:
 
-1. Layer-wise analysis of mathematical representations
-2. Comparison between specialist and generalist LLMs
-3. Embedding-space analysis of mathematical concepts
-4. Linear probing evaluation across transformer depth
-5. Representation geometry analysis of mathematical reasoning
+```yaml
+device: "cuda_if_available"
+
+models:
+  qwen:
+    model_name: "Qwen/Qwen2.5-Math-7B-Instruct"
+    type: "specialist"
+  llama:
+    model_name: "meta-llama/Llama-3.1-8B-Instruct"
+    type: "generalist"
+```
+
+To run a single model during development, comment out one entry under `models`.
 
 ---
 
-# Citation
+## Outputs
+
+After a full run, `results/` contains:
+
+```text
+results/
+├── embeddings/
+│   ├── qwen/layer_XX.npz
+│   └── llama/layer_XX.npz
+├── clustering/silhouette_results.csv
+├── probing/layerwise_results.csv
+├── tables/final_summary.csv
+├── figures/
+│   ├── accuracy_by_layer.png
+│   ├── silhouette_by_layer.png
+│   ├── umap/
+│   └── pca/
+└── stats/
+    ├── accuracy_significance.json
+    ├── macro_f1_significance.json
+    └── silhouette_significance.json
+```
+
+Each `.npz` embedding file stores: `embeddings`, `labels`, `sample_ids`, `questions`, `model_name`, `layer_idx`.
+
+---
+
+## Google Colab
+
+1. Open [Google Colab](https://colab.research.google.com/) and upload `notebooks/colab_run.ipynb`.
+2. **Runtime → Change runtime type → T4 GPU**.
+3. Run all cells (Hugging Face token required for Llama).
+4. Download `results.zip` or copy `results/` to Google Drive.
+
+Colab sessions may disconnect after several hours. Save embeddings to Drive after step 3 if the run is interrupted.
+
+---
+
+## Reproducibility
+
+- Fixed random seed (`42`) for splitting, clustering, probing, and projections
+- Identical train/test IDs across all layers and models
+- Same preprocessing and pooling for both models
+- Questions passed as raw text (no chat template) for a controlled comparison
+
+---
+
+## Citation
+
+If you use this code or dataset, please cite:
 
 ```bibtex
 @article{yourpaper2026,
-  title={Layer-wise Evolution of Mathematical Concept Representations: Comparing Specialist and Generalist Language Models},
-  author={Author Names},
-  year={2026}
+  title   = {Layer-wise Evolution of Mathematical Concept Representations: Comparing Specialist and Generalist Language Models},
+  author  = {Author Names},
+  year    = {2026}
 }
 ```
 
 ---
 
-# License
+## License
 
-MIT License
+MIT License. See [LICENSE](LICENSE) for details.
