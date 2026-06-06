@@ -26,6 +26,11 @@ def load_model_and_tokenizer(
     device_map = "auto" if device.type == "cuda" else None
 
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=trust_remote_code)
+    if tokenizer.pad_token is None:
+        if tokenizer.eos_token is not None:
+            tokenizer.pad_token = tokenizer.eos_token
+        else:
+            tokenizer.add_special_tokens({"pad_token": ""})
 
     load_kwargs: dict = {
         "output_hidden_states": True,
@@ -33,7 +38,7 @@ def load_model_and_tokenizer(
     }
     if device.type == "cuda":
         load_kwargs["device_map"] = device_map
-        load_kwargs["torch_dtype"] = torch.float16
+        load_kwargs["dtype"] = torch.float16
 
     model = AutoModel.from_pretrained(model_name, **load_kwargs)
     return tokenizer, model, device

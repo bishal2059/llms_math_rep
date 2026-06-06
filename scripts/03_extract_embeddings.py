@@ -40,6 +40,15 @@ if __name__ == "__main__":
     for model_tag, model_cfg in models_config.items():
 
         model_name = model_cfg["model_name"]
+        emb_dir = Path(f"results/embeddings/{model_tag}")
+        existing_layers = sorted(emb_dir.glob("layer_*.npz")) if emb_dir.exists() else []
+
+        if existing_layers:
+            print(
+                f"Skipping {model_tag}: found "
+                f"{len(existing_layers)} existing layer files in {emb_dir}"
+            )
+            continue
 
         print(f"Loading model: {model_name}")
 
