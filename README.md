@@ -179,7 +179,10 @@ venv\\Scripts\\activate
 
 ```bash
 pip install -r requirements.txt
+pip install -e .
 ```
+
+The editable install registers the `src` package so scripts can be run from the repository root.
 
 ---
 

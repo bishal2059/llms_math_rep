@@ -17,7 +17,7 @@ def run_clustering_on_folder(embeddings_dir: str | Path, out_csv: str | Path):
             "file": str(npz_path),
             "model_name": str(data["model_name"][0]),
             "layer_idx": int(data["layer_idx"][0]),
-            "silhouette": float(score),
+            "silhouette_score": float(score),
         })
 
     df = pd.DataFrame(rows).sort_values(["model_name", "layer_idx"])

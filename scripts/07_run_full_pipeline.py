@@ -8,6 +8,9 @@ STEPS = [
     "scripts/04_run_clustering.py",
     "scripts/05_run_probing.py",
     "scripts/06_generate_analysis.py",
+    "scripts/08_run_significance_tests.py",
+    "scripts/09_plot_umap_layers.py",
+    "scripts/10_plot_pca_layers.py",
 ]
 
 if __name__ == "__main__":

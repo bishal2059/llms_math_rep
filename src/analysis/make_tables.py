@@ -7,7 +7,7 @@ def make_final_table(probing_csv: str | Path, clustering_csv: str | Path, out_cs
     clustering = pd.read_csv(clustering_csv)
 
     merged = probing.merge(
-        clustering[["model_name", "layer_idx", "silhouette"]],
+        clustering[["model_name", "layer_idx", "silhouette_score"]],
         on=["model_name", "layer_idx"],
         how="left",
     )
@@ -17,10 +17,10 @@ def make_final_table(probing_csv: str | Path, clustering_csv: str | Path, out_cs
         .agg(
             best_accuracy=("accuracy", "max"),
             best_macro_f1=("macro_f1", "max"),
-            best_silhouette=("silhouette", "max"),
+            best_silhouette=("silhouette_score", "max"),
             mean_accuracy=("accuracy", "mean"),
             mean_macro_f1=("macro_f1", "mean"),
-            mean_silhouette=("silhouette", "mean"),
+            mean_silhouette=("silhouette_score", "mean"),
         )
     )
 

@@ -14,14 +14,22 @@ from src.embeddings.save_npz import (
     save_layer_npz
 )
 
-MODELS = {
-    "qwen": "Qwen/Qwen2.5-7B",
-    "llama": "meta-llama/Llama-3.1-8B-Instruct",
-}
+from src.utils.config import (
+    load_yaml
+)
+
+CONFIG_PATH = "configs/models.yaml"
 
 DATA_PATH = "data/processed/dataset.parquet"
 
 if __name__ == "__main__":
+
+    config = load_yaml(CONFIG_PATH)
+    models_config = config.get("models", {})
+    device_preference = config.get("device", "cuda_if_available")
+
+    if not models_config:
+        raise ValueError("No models found in configs/models.yaml")
 
     df = pd.read_parquet(DATA_PATH)
 
@@ -29,19 +37,24 @@ if __name__ == "__main__":
     labels = df["label"].to_numpy()
     sample_ids = df["sample_id"].tolist()
 
-    for model_tag, model_name in MODELS.items():
+    for model_tag, model_cfg in models_config.items():
+
+        model_name = model_cfg["model_name"]
 
         print(f"Loading model: {model_name}")
 
-        tokenizer, model = load_model_and_tokenizer(
-            model_name
+        tokenizer, model, device = load_model_and_tokenizer(
+            model_name,
+            device_preference=device_preference,
         )
+
+        print(f"Resolved device: {device}")
 
         layer_embeddings = extract_all_layers(
             model=model,
             tokenizer=tokenizer,
             texts=texts,
-            device=model.device,
+            device=device,
             batch_size=8,
             max_length=256,
         )

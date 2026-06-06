@@ -8,6 +8,21 @@ from tqdm import tqdm
 from .pooling import mean_pool
 
 
+def _select_input_device(model, fallback_device: str | torch.device) -> torch.device:
+    if hasattr(model, "hf_device_map") and getattr(model, "hf_device_map"):
+        for mapped in model.hf_device_map.values():
+            mapped_str = str(mapped)
+            if "cuda" in mapped_str:
+                return torch.device(mapped_str)
+
+        for mapped in model.hf_device_map.values():
+            mapped_str = str(mapped)
+            if mapped_str != "disk":
+                return torch.device(mapped_str)
+
+    return torch.device(fallback_device)
+
+
 def extract_all_layers(
     model,
     tokenizer,
@@ -18,7 +33,11 @@ def extract_all_layers(
     include_embedding_layer: bool = True,
 ):
     model.eval()
-    model.to(device)
+
+    if not (hasattr(model, "hf_device_map") and getattr(model, "hf_device_map")):
+        model.to(device)
+
+    input_device = _select_input_device(model, device)
 
     all_layers = None
 
@@ -31,7 +50,7 @@ def extract_all_layers(
             truncation=True,
             max_length=max_length,
         )
-        inputs = {k: v.to(device) for k, v in inputs.items()}
+        inputs = {k: v.to(input_device) for k, v in inputs.items()}
 
         with torch.no_grad():
             outputs = model(**inputs)

@@ -9,7 +9,22 @@ from src.probing.layerwise_probing import (
 
 RESULTS = []
 
+TRAIN_IDS_PATH = Path("data/splits/train_ids.csv")
+TEST_IDS_PATH = Path("data/splits/test_ids.csv")
+
 if __name__ == "__main__":
+
+    if not TRAIN_IDS_PATH.exists() or not TEST_IDS_PATH.exists():
+        raise FileNotFoundError(
+            "Missing split files. Run scripts/02_split_dataset.py first."
+        )
+
+    train_ids = set(
+        pd.read_csv(TRAIN_IDS_PATH)["sample_id"].astype(str)
+    )
+    test_ids = set(
+        pd.read_csv(TEST_IDS_PATH)["sample_id"].astype(str)
+    )
 
     embedding_paths = sorted(
         Path("results/embeddings").rglob(
@@ -21,6 +36,8 @@ if __name__ == "__main__":
 
         result = run_layerwise_probing(
             npz_path=npz_path,
+            train_ids=train_ids,
+            test_ids=test_ids,
             seed=42,
         )
 

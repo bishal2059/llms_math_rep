@@ -7,7 +7,7 @@ def compare_model_results(probing_csv: str | Path, clustering_csv: str | Path) -
     clustering = pd.read_csv(clustering_csv)
 
     merged = probing.merge(
-        clustering[["model_name", "layer_idx", "silhouette"]],
+        clustering[["model_name", "layer_idx", "silhouette_score"]],
         on=["model_name", "layer_idx"],
         how="left",
     )

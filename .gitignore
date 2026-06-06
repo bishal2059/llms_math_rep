@@ -9,3 +9,5 @@ logs/
 *.bin
 *.npy
 *.pkl
+data/processed/
+data/splits/
