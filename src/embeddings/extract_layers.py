@@ -8,17 +8,42 @@ from tqdm import tqdm
 from .pooling import mean_pool
 
 
+def _normalize_device_map_entry(mapped) -> torch.device | None:
+    """Convert accelerate device_map values to torch.device."""
+    if isinstance(mapped, torch.device):
+        return mapped
+
+    if isinstance(mapped, int):
+        if torch.cuda.is_available():
+            return torch.device(f"cuda:{mapped}")
+        return torch.device("cpu")
+
+    mapped_str = str(mapped).strip().lower()
+    if mapped_str in {"disk", "meta"}:
+        return None
+    if mapped_str == "cpu":
+        return torch.device("cpu")
+    if mapped_str.startswith("cuda"):
+        return torch.device(mapped_str)
+    if mapped_str.isdigit():
+        if torch.cuda.is_available():
+            return torch.device(f"cuda:{mapped_str}")
+        return torch.device("cpu")
+
+    return None
+
+
 def _select_input_device(model, fallback_device: str | torch.device) -> torch.device:
     if hasattr(model, "hf_device_map") and getattr(model, "hf_device_map"):
         for mapped in model.hf_device_map.values():
-            mapped_str = str(mapped)
-            if "cuda" in mapped_str:
-                return torch.device(mapped_str)
+            device = _normalize_device_map_entry(mapped)
+            if device is not None and device.type == "cuda":
+                return device
 
         for mapped in model.hf_device_map.values():
-            mapped_str = str(mapped)
-            if mapped_str != "disk":
-                return torch.device(mapped_str)
+            device = _normalize_device_map_entry(mapped)
+            if device is not None:
+                return device
 
     return torch.device(fallback_device)
 

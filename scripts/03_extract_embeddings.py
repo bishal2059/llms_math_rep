@@ -55,7 +55,7 @@ if __name__ == "__main__":
             tokenizer=tokenizer,
             texts=texts,
             device=device,
-            batch_size=8,
+            batch_size=4,
             max_length=256,
         )
 
