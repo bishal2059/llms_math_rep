@@ -313,6 +313,20 @@ python scripts/07_run_full_pipeline.py
 
 ---
 
+## Run on Google Colab
+
+1. Push this repo to GitHub.
+2. Open [Google Colab](https://colab.research.google.com/).
+3. **File → Upload notebook** and choose `notebooks/colab_run.ipynb`,  
+   or upload the notebook from your clone.
+4. **Runtime → Change runtime type → T4 GPU**.
+5. Run the cells top to bottom (Hugging Face token required for Llama).
+6. Download `results.zip` when finished, or copy `results/` to Google Drive.
+
+Colab free tier may disconnect after ~12 hours; save embeddings to Drive after step 3 if the session is long.
+
+---
+
 # Output Files
 
 ---
